@@ -230,7 +230,7 @@ int cargarCalificaciones(Calificacion calificaciones[], char archivo[])
 
 
 // =========================================================
-//               FUNCIONES ESPECÕFICAS
+//               FUNCIONES ESPEC√çFICAS
 // =========================================================
 
 void obtenerFechaActual(char fecha[])
@@ -264,7 +264,7 @@ void registrarCalificacion(char archivo[], int idAlumno, int idMateria, float no
 // LISTAR MATERIAS
 void listarMaterias(Materia materias[], int cantMaterias)
 {
-    printf("\nID\tMateria\t\tProfesor\tAÒo\n");
+    printf("\nID\tMateria\t\tProfesor\tA√±o\n");
     printf("--------------------------------------------\n");
     for(int i = 0; i < cantMaterias; i++)
     {
@@ -463,25 +463,4 @@ void menuProfesor(char archivoCalificaciones[], Persona personas[], int cantPers
         }
     }
     while(op!='0');
-}
-
-float promedioAlumnoDirecto(char nombreArchivo[], int idAlumno)
-{
-    FILE* f = fopen(nombreArchivo, "rb");
-    if(!f) return -1;
-
-    Calificacion c;
-    int cont = 0;
-    float suma = 0;
-    while(fread(&c, sizeof(Calificacion), 1, f))
-    {
-        if(c.idAlumno == idAlumno)
-        {
-            suma+= c.nota;
-            cont++;
-        }
-    }
-    fclose(f);
-    if(cont == suma) return -1;
-    return cont/suma;
 }
