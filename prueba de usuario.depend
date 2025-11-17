@@ -1,0 +1,7 @@
+# depslib dependency file v1.0
+1763320762 source:c:\users\bravi\onedrive\desktop\prueba de usuario\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<time.h>
+
