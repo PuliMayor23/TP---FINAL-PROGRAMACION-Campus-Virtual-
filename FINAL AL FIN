@@ -1,0 +1,498 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_PERSONAS 50
+#define MAX_MATERIAS 20
+#define MAX_CALIFICACIONES 100
+
+//ESTRUCTURAS
+typedef struct
+{
+    int idPersona;
+    char nombre[20];
+    char apellido[20];
+    char dni[20];
+    char usuario[20];
+    char contrasenia[20];
+    char tipo;
+    int activo;
+} Persona;
+
+typedef struct
+{
+    int idMateria;
+    char nombreMateria[30];
+    char profesor[30];
+    int anio;
+} Materia;
+
+typedef struct
+{
+    int idAlumno;
+    int idMateria;
+    float nota;
+    char fecha[11];
+} Calificacion;
+
+// PROTOTIPS
+void mostrarUnaPersona(Persona);
+int crearUsuario(char archivo[]);
+int cargarUsuarios(Persona personas[], char archivo[]);
+int cargarMaterias(Materia materias[], char archivo[]);
+int cargarCalificaciones(Calificacion calificaciones[], char archivo[]);
+void registrarCalificacion(char archivo[], int idAlumno, int idMateria, float nota);
+void mostrarCalificacionesAlumno(char archivo[], int idAlumno, Materia materias[], int cantMaterias);
+void promedioAlumno(char archivo[], int idAlumno);
+void menuAlumno(char archivoCalificaciones[], int idAlumno, Materia materias[], int cantMaterias);
+void menuProfesor(char archivoCalificaciones[], Persona personas[], int cantPersonas, Materia materias[], int cantMaterias);
+void listarMaterias(Materia materias[], int cantMaterias);
+void listarAlumnos(Persona personas[], int cantPersonas);
+void inicializarMaterias();
+int igual(const char *a, const char *b);
+
+//MAIN
+int main()
+{
+    Persona personas[MAX_PERSONAS];
+    Materia materias[MAX_MATERIAS];
+    Calificacion calificaciones[MAX_CALIFICACIONES];
+
+    int cantMateriasTot, cantCalificaciones;
+    char opcion;
+
+    cantMateriasTot = cargarMaterias(materias, "materias.bin");
+    cantCalificaciones = cargarCalificaciones(calificaciones, "calificaciones.dat");
+
+    do
+    {
+        printf("\n-.-.-.-.-CAMPUS VIRTUAL-.-.-.-.-\n");
+        printf("\n 1: Crear usuario");
+        printf("\n 2: Ingresar al campus");
+        printf("\n 3: Salir");
+        printf("\nElija la opcion: ");
+        scanf(" %c", &opcion);
+
+        switch(opcion)
+        {
+        case '1':
+            crearUsuario("usuarios.dat");
+            break;
+
+        case '2':
+        {
+            int cantUsuarios = cargarUsuarios(personas, "usuarios.dat");
+            char usuarioIngresado[20];
+            char contraseniaIngresada[20];
+            Persona personaActiva;
+            int encontrado = 0;
+
+            printf("\n--..--..--INICIO DE SESION--..--..--");
+            printf("\nIngrese el usuario: ");
+            scanf("%s", usuarioIngresado);
+            fflush(stdin);
+            printf("\nContrasenia: ");
+            scanf("%s", contraseniaIngresada);
+
+            printf("Usuario ingresado: %s %s", usuarioIngresado, contraseniaIngresada);
+            for(int i=0; i<cantUsuarios; i++)
+            {
+                mostrarUnaPersona(personas[i]);
+                if(igual(personas[i].usuario, usuarioIngresado) &&
+                   igual(personas[i].contrasenia, contraseniaIngresada) &&
+                   personas[i].activo==1)
+                {
+                    personaActiva = personas[i];
+                    encontrado = 1;
+                    break;
+                }
+            }
+
+            if(encontrado==0)
+            {
+                printf("\nUsuario o contrasenia incorrectos.");
+            }
+            else
+            {
+                printf("\nBienvenido/a: %s\n", personaActiva.nombre);
+                if(personaActiva.tipo == 'A' || personaActiva.tipo == 'a')
+                    menuAlumno("calificaciones.dat", personaActiva.idPersona, materias, cantMateriasTot);
+                else if(personaActiva.tipo == 'P' || personaActiva.tipo == 'p')
+                    menuProfesor("calificaciones.dat", personas, cantUsuarios, materias, cantMateriasTot);
+                else
+                    printf("\nERROR.");
+            }
+            break;
+        }
+
+        case '3':
+            printf("\nByeeee..");
+            break;
+
+        default:
+            printf("\nOpcioooooon invalida.");
+        }
+
+    }
+    while(opcion!='3');
+
+    return 0;
+}
+
+//FUNCIONES
+
+int crearUsuario(char archivo[])
+{
+    FILE *f = fopen(archivo, "ab");
+    if(!f)
+    {
+        printf("Error al abrir archivo de usuarios.\n");
+        return 0;
+    }
+
+    Persona p;
+    char tipo;
+
+    //compas, sacamos los fgets, son un culo, era el gran error
+
+    printf("\nID de la persona: ");
+    scanf("%d", &p.idPersona);
+
+    printf("\nNombre: ");
+    scanf(" %s", p.nombre);
+    fflush(stdin);
+
+    printf("\nApellido: ");
+    scanf(" %s", p.apellido);
+    fflush(stdin);
+
+    printf("\nDNI: ");
+    scanf(" %s", p.dni);
+    fflush(stdin);
+
+    printf("\nUsuario: ");
+    scanf(" %s",p.usuario);
+
+    printf("\nContrasenia: ");
+    scanf(" %s", p.contrasenia);
+
+    printf("\nTipo (A=Alumno / P=Profesor): ");
+    scanf(" %c", &tipo);
+
+    p.tipo = tipo;
+    p.activo = 1;
+
+    fwrite(&p, sizeof(Persona), 1, f);
+    fclose(f);
+
+    printf("\nUsuario creado correctamente.");
+    return 1;
+}
+
+int cargarUsuarios(Persona personas[], char archivo[])
+{
+    FILE *f = fopen(archivo, "rb");
+    if(!f)
+        return 0;
+    int cant = 0;
+    while(fread(&personas[cant], sizeof(Persona), 1, f) == 1 && cant < MAX_PERSONAS)
+    {
+        mostrarUnaPersona(personas[cant]);
+        cant++;
+    }
+    fclose(f);
+    return cant;
+}
+
+//Cargamos las materias, archivo creado por nosotros
+
+int cargarMaterias(Materia materias[], char archivo[])
+{
+    FILE *f = fopen(archivo, "rb");
+    if(!f)
+    {
+        inicializarMaterias();
+        f = fopen(archivo, "rb");
+        if(!f) return 0;
+    }
+
+    int cant = 0;
+    while(fread(&materias[cant], sizeof(Materia), 1, f) == 1 && cant < MAX_MATERIAS)
+        cant++;
+
+    fclose(f);
+    return cant;
+}
+
+int cargarCalificaciones(Calificacion calificaciones[], char archivo[])
+{
+    FILE *f = fopen(archivo, "rb");
+    if(!f) return 0;
+
+    int cant = 0;
+    while(fread(&calificaciones[cant], sizeof(Calificacion), 1, f) == 1 && cant < MAX_CALIFICACIONES)
+        cant++;
+
+    fclose(f);
+    return cant;
+}
+
+void registrarCalificacion(char archivo[], int idAlumno, int idMateria, float nota)
+{
+    FILE *f = fopen(archivo, "ab");
+    if(!f)
+    {
+        printf("\nError al abrir archivo de calificaciones.");
+        return;
+    }
+
+    Calificacion c;
+    c.idAlumno = idAlumno;
+    c.idMateria = idMateria;
+    c.nota = nota;
+
+    fwrite(&c, sizeof(Calificacion), 1, f);
+    fclose(f);
+
+    printf("\nCalificacion registrada.");
+}
+
+void listarMaterias(Materia materias[], int cantMaterias)
+{
+    printf("\nID,\tMateria,\tProfesor,\tAño.");
+    printf("\n.--.--.--.--.--.--.--.--.--.--.--.");
+    for(int i = 0; i < cantMaterias; i++)
+    {
+        printf("\n%d,\t%-15s,\t%-10s,\t%d.\n",
+               materias[i].idMateria,
+               materias[i].nombreMateria,
+               materias[i].profesor,
+               materias[i].anio);
+    }
+}
+
+void listarAlumnos(Persona personas[], int cantPersonas)
+{
+    printf("\nID,\tNombre,\t\tDNI,\n");
+    printf("\n.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.\n");
+    for(int i=0; i<cantPersonas; i++)
+    {
+        if(personas[i].tipo=='A' && personas[i].activo==1)
+        {
+            mostrarUnaPersona(personas[i]);
+        }
+    }
+}
+
+void mostrarUnaPersona(Persona p)
+{
+     printf("%d,\t%-15s,\t%s\n",
+                   p.idPersona,
+                   p.nombre,
+                   p.dni);
+}
+
+void mostrarCalificacionesAlumno(char archivo[], int idAlumno, Materia materias[], int cantMaterias)
+{
+    FILE *f = fopen(archivo, "rb");
+    if(!f)
+    {
+        printf("Error al abrir archivo.\n");
+        return;
+    }
+
+    Calificacion c;
+    int tiene = 0;
+
+    printf("\nMateria:\tNota:\tEstado:");
+    printf("\n-------------------------------\n");
+
+    while(fread(&c, sizeof(Calificacion), 1, f))
+    {
+        if(c.idAlumno == idAlumno)
+        {
+
+            int i;
+            for(i=0; i<cantMaterias; i++)
+            {
+                if(materias[i].idMateria == c.idMateria)
+                    break;
+            }
+
+            if(i == cantMaterias)
+            {
+                printf("Materia desconocida (ID %d)\n", c.idMateria);
+                continue;
+            }
+
+            const char *estado =
+                (c.nota >= 8) ? "Promocionada" :
+                (c.nota >= 6) ? "Aprobada" :
+                "Recursa";
+
+            printf("%-15s\t%.2f\t%s",
+                   materias[i].nombreMateria,
+                   c.nota,
+                   estado);
+
+            tiene = 1;
+        }
+    }
+
+    if(!tiene)
+        printf("No hay calificaciones.\n");
+
+    fclose(f);
+}
+
+void promedioAlumno(char archivo[], int idAlumno)
+{
+    FILE *f = fopen(archivo, "rb");
+    if(!f) return;
+
+    Calificacion c;
+    int cont = 0;
+    float suma = 0;
+
+    while(fread(&c,sizeof(Calificacion),1,f))
+    {
+        if(c.idAlumno == idAlumno)
+        {
+            suma += c.nota;
+            cont++;
+        }
+    }
+
+    fclose(f);
+
+    if(cont > 0)
+    {
+        printf("Promedio general: %.2f\n", suma/cont);
+    }
+    else
+    {
+        printf("No hay calificaciones para calcular promedio.\n");
+    }
+}
+
+//MENU ALUMNO
+void menuAlumno(char archivoCalificaciones[], int idAlumno, Materia materias[], int cantMaterias)
+{
+    char opc;
+    do
+    {
+        printf("\nMenu Alumno Vago\n");
+        printf("1. Ver mis calificaciones\n");
+        printf("2. Ver promedio\n");
+        printf("0. Salir\n");
+        printf("Opcion: ");
+        scanf(" %c", &opc);
+
+        switch(opc)
+        {
+        case '1':
+            mostrarCalificacionesAlumno(archivoCalificaciones, idAlumno, materias, cantMaterias);
+            break;
+
+        case '2':
+            promedioAlumno(archivoCalificaciones, idAlumno);
+            break;
+
+        case '0':
+            printf("Saliendo...\n");
+            break;
+
+        default:
+            printf("Opcion invalida.\n");
+        }
+
+    }
+    while(opc!='0');
+}
+
+//MENU PROFESOR
+void menuProfesor(char archivoCalificaciones[], Persona personas[], int cantPersonas, Materia materias[], int cantMaterias)
+{
+    char opc;
+
+    do
+    {
+        printf("\n -.-.-.-.-Menu de profes copados-.-.-.-.-\n");
+        printf("1. Materia que ejerzo.\n");
+        printf("2. Registrar calificacion.\n");
+        printf("3. Listar materias.\n");
+        printf("4. Listar alumnos.\n");
+        printf("0. Salir\n");
+        printf("Opcion: ");
+        scanf(" %c", &opc);
+
+        switch(opc)
+        {
+
+        case '2':
+        {
+            int idAlumno, idMateria;
+            float nota;
+
+            listarAlumnos(personas, cantPersonas);
+            printf("ID alumno: ");
+            scanf("%d", &idAlumno);
+
+            listarMaterias(materias, cantMaterias);
+            printf("ID materia: ");
+            scanf("%d", &idMateria);
+
+            printf("Nota: ");
+            scanf("%f", &nota);
+
+            registrarCalificacion(archivoCalificaciones, idAlumno, idMateria, nota);
+            break;
+        }
+
+        case '3':
+            listarMaterias(materias, cantMaterias);
+            break;
+
+        case '4':
+            listarAlumnos(personas, cantPersonas);
+            break;
+
+        case '0':
+            printf("Saliendo..\n");
+            break;
+
+        default:
+            printf("ERROR......\n");
+        }
+    }
+    while(opc!='0');
+}
+
+void inicializarMaterias()
+{
+    FILE *f = fopen("materias.bin", "wb");
+    if(!f)
+    {
+        printf("No se pudo crear el archivo.\n");
+        return;
+    }
+
+    Materia m1 = {1, "Programacion", "Eduardo", 1};
+    Materia m2 = {2, "Estadistica", "Ayelen", 1};
+    Materia m3 = {3, "Ingles", "Kevin", 1};
+
+    fwrite(&m1, sizeof(Materia), 1, f);
+    fwrite(&m2, sizeof(Materia), 1, f);
+    fwrite(&m3, sizeof(Materia), 1, f);
+
+    fclose(f);
+    printf("Archivo creado y materias guardadas.\n");
+}
+
+int igual(const char *a, const char *b)
+{
+    return strcmp(a, b) == 0;
+}
+
+
+//FIIIIIIIIIIIIIIIN, THE END, A DOPOOOOOO
